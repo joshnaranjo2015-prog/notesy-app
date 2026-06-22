@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: notesy-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASS}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+  migration_job:
+    build: .
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py seed"
+    environment:
+      - SQL_DATABASE=${POSTGRES_DB}
+      - SQL_USER=${POSTGRES_USER}
+      - SQL_PASSWORD=${POSTGRES_PASS}
+      - SQL_HOST=notesy-db
+      - SQL_PORT=5432
+    depends_on:
+      - db
+  web:
+    build: .
+    container_name: notesy-web
+    restart: always
+    command: ["gunicorn", "--bind", "0.0.0.0:8000", "-c", "gunicorn.conf.py", "notesy.wsgi:application"]
+    ports:
+      - "8000:8000"
+    environment:
+      - SQL_DATABASE=${POSTGRES_DB}
+      - SQL_USER=${POSTGRES_USER}
+      - SQL_PASSWORD=${POSTGRES_PASS}
+      - SQL_HOST=notesy-db
+      - SQL_PORT=5432
+    depends_on:
+      migration_job:
+        condition: service_completed_successfully
+  
+
+volumes:
+  pgdata:
