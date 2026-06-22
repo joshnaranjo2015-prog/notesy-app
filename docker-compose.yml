@@ -21,7 +21,7 @@ services:
       - "4318:4318" # OTLP HTTP port
 
   migration_job:
-    build: .
+    image:  ghcr.io/joshnaranjo2015-prog/notesy:latest
     command: >
       sh -c "python manage.py migrate &&
              python manage.py seed"
@@ -35,7 +35,7 @@ services:
       - db
 
   web:
-    build: .
+    image:  ghcr.io/joshnaranjo2015-prog/notesy:latest
     deploy:
       replicas: 2
     volumes:
@@ -50,7 +50,7 @@ services:
     depends_on:
       migration_job:
         condition: service_completed_successfully
-        
+
   nginx:
     image: nginx:1.25-alpine
     volumes:
