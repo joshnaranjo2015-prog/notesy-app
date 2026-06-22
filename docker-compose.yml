@@ -31,6 +31,7 @@ services:
       - SQL_PASSWORD=${POSTGRES_PASS}
       - SQL_HOST=notesy-db
       - SQL_PORT=5432
+      - SECRET_KEY=${SECRET_KEY}
     depends_on:
       - db
 
@@ -47,6 +48,7 @@ services:
       - SQL_PASSWORD=${POSTGRES_PASS}
       - SQL_HOST=notesy-db
       - SQL_PORT=5432
+      - SECRET_KEY=${SECRET_KEY}
     depends_on:
       migration_job:
         condition: service_completed_successfully
