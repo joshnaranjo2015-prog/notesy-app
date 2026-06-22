@@ -65,10 +65,7 @@ DATABASES = {
 }
 
 
-SESSION_ENGINE = "django.contrib.sessions.backends.file"
-SESSION_FILE_PATH = str(BASE_DIR / ".sessions")
-os.makedirs(SESSION_FILE_PATH, exist_ok=True)
-
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
