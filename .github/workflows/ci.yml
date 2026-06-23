@@ -19,6 +19,22 @@ jobs:
       packages: write
       security-events: write # Required to upload Trivy scan results to GitHub Security tab
 
+    services:
+      db:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: django_test_db
+          POSTGRES_USER: django_user
+          POSTGRES_PASSWORD: django_password
+        ports:
+          - 5432:5432
+        # Ensure postgres is healthy before tests start
+        options: >-
+          --health-cmd "pg_isready -U django_user -d django_test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       # ==========================================
       # 1. CHECKOUT & RUN PYTEST
@@ -41,8 +57,13 @@ jobs:
       - name: Run Pytest
         env:
           # Inject mock/test env variables if your Django settings require them
+          SQL_DATABASE: django_test_db
+          SQL_USER: django_user
+          SQL_PASSWORD: django_password
+          SQL_HOST: localhost
+          SQL_PORT: 5432
           SECRET_KEY: "temporary-ci-secret-key"
-          DEBUG: "True"
+          DEBUG: "False"
         run: |
           pytest
 
