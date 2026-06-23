@@ -9,37 +9,40 @@
 - Added a status code to failed log in for better error tracking
 - Updated settings.py: 
     - Set debug to false per recommendations
-    - Pull sensitive values into env vars
-    - Updated database to postgres
+    - Pull sensitive values into env vars, so they are no longer stored in git
+    - Updated database to postgres, allows better containerization and scalability (also explicitly called out in deliverables)
     - Updated sessions to use db (allows load balancing)
-- Added gunicorn.conf.py file to auto instrument opentelemetry
+- Added gunicorn.conf.py file to auto instrument opentelemetry, this gives the ground level of work for observability
 
 ### Docker
 
 - Created a two step docker file
-    - Build static assets separately 
-    - Build the app container
+    - Build static assets separately using a node container
+    - Build the app container using a python container
 - Created a docker compose file
     - Pulls known postgres version and configures from .env file
-    - Runs migrate and seed using a short lived container
+    - Runs migrate and seed using a short lived container, this way the processes only run once on each compose up to ensure db is configured as desired
     - Pulls open-telemetry collector
         - This can then be configured to push or be scraped to an observability back end
+        - Uses an external conf file, currently set up as just very basic defaults
     - Pulls latest app image from github
-        - Configures using .env
+        - Configures using .env to populate secrets
         - Shares volume for static files
         - 2 replicas for some load balancing
-    - Pull nginx image
+    - Pull nginx image, allows load balancing so the web can scale. In prod can allow more deployment options (such as blue-green or canary)
         - pulls in conf from file
         - shared file to share static images
         - load balances requests to x number of web instances
 
 ### CI
 
+- Kept the test step more or less as is
 - Added a build step to create the docker image
-- Added a code scaning step using open source tools
+- Added a code scaning step using open source tools adding some shift left security
 - Added push to store
     - tags with latest to work by default
     - but also tags with sha and branch to allow roll back to older versions if needed
+    - Only runs on actual push after PR is approved
 
 ## Tradeoffs
 
