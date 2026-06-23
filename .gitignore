@@ -5,3 +5,7 @@ db.sqlite3
 node_modules/
 .venv/
 venv/
+package-lock.json
+static/
+.env*
+.secret

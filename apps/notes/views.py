@@ -18,7 +18,7 @@ def login_view(request):
             print(f"login ok user={username}")
             return redirect("note_list")
         print(f"login failed user={username}")
-        return render(request, "notes/login.html", {"error": "Invalid credentials"})
+        return render(request, "notes/login.html", {"error": "Invalid credentials"}, status=401)
     return render(request, "notes/login.html")
 
 

@@ -1,14 +1,131 @@
-name: CI
+name: CI Pipeline
 
-on: [push]
+on:
+  pull_request:
+    branches: [ "main"]
+  push:
+    branches: [ "main" ]
+
+env:
+  REGISTRY: ghcr.io
+  # This dynamically extracts 'owner/repository-name' in lowercase format
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  test:
+  test-and-publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write # Required to upload Trivy scan results to GitHub Security tab
+
+    services:
+      db:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: django_test_db
+          POSTGRES_USER: django_user
+          POSTGRES_PASSWORD: django_password
+        ports:
+          - 5432:5432
+        # Ensure postgres is healthy before tests start
+        options: >-
+          --health-cmd "pg_isready -U django_user -d django_test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # ==========================================
+      # 1. CHECKOUT & RUN PYTEST
+      # ==========================================
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - run: pytest || true
+          python-version: '3.11'
+          cache: 'pip' # Speeds up subsequent runs by caching dependencies
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install pytest # Ensures pytest is present if not in requirements.txt
+
+      - name: Run Pytest
+        env:
+          # Inject mock/test env variables if your Django settings require them
+          SQL_DATABASE: django_test_db
+          SQL_USER: django_user
+          SQL_PASSWORD: django_password
+          SQL_HOST: localhost
+          SQL_PORT: 5432
+          SECRET_KEY: "temporary-ci-secret-key"
+          DEBUG: "False"
+        run: |
+          pytest
+
+      # ==========================================
+      # 2. RUN DOCKER BUILD
+      # ==========================================
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=long
+            type=ref,event=branch
+            latest
+
+      - name: Build Docker Image locally
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true # Loads the image into the local Docker daemon so Trivy can scan it
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ==========================================
+      # 3. SCAN CONTAINER FOR VULNERABILITIES
+      # ==========================================
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() # Upload results even if vulnerabilities are found and previous steps failed
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      # ==========================================
+      # 4. PUSH CONTAINER TO GITHUB REGISTRY
+      # ==========================================
+      - name: Push Docker Image
+        if: github.event_name != 'pull_request' # Only push image on actual merges/pushes, not PRs
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
