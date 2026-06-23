@@ -46,6 +46,7 @@
 - Focused more on architecture and availability options so there is likely more to be done of the app side
 - Used auto instrumentation on the observability side
     - Con: Gives less customization and flexibility
+    - Con: Lacks log collection and correlation
     - Pro: allowed really quick frameworking
 - Grabbed an opensource sca and used llm to generate the gha for it
     - knew I wanted one and it would be helpful but didn't have a ton of time to research or play around with options
@@ -57,7 +58,7 @@
 
 - Further tune error logs/codes to better track issues
     - look into adding a structured logging library depending on how the auto instrument telemetry behaves
-- Look into retry logic on the database calls in case service is unavailable
+    - At a minimum look into something like the fluentd driver to structure logs for otel collection
 - Hook up an open source observability platform to grab and centralize metrics and logs
     - See what is getting captured with auto instrumtation 
     - Look for any short falls and add additional sdks to capture
@@ -68,6 +69,7 @@
     - User roles and permissions on the db
         - ie the app role shouldn't be able to alter or drop tables
     - Preformance monitoring, as is I feel like DB health is a weaker spot on the app
+    - The app likely needs some retry logic in case of DB failures
 - secret generation
     - Mostly pushed them into a .env file to offload onto the user for simplisity 
     - More randomized and externally stored passwords/api keys would be needed for production
@@ -117,7 +119,7 @@ Then run with:
 - Alternatively, require rollback scripts that can be ran in case of migration failure
 
 ### Log, metrics, alerts
-- App is auto-instrumented with otel to expose logs and metrics
+- App is auto-instrumented with otel to expose traces and metrics
 - Any tool can scrape this data or use built in otel capabilities
     - Can go with an open source stack prom, jaeger, loki > Grafana
         - Pro: lower cost, high flexibility
