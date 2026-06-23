@@ -49,6 +49,8 @@ services:
       - SQL_HOST=notesy-db
       - SQL_PORT=5432
       - SECRET_KEY=${SECRET_KEY}
+      - OTEL_SERVICE_NAME=notesy-web
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
     depends_on:
       migration_job:
         condition: service_completed_successfully
